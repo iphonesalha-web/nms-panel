@@ -66,6 +66,12 @@
   th{color:var(--muted);font-weight:600;font-size:12px;background:var(--panel-2)}
   tr:last-child td{border-bottom:none}
   .code{font-family:"SF Mono",Menlo,Consolas,monospace;letter-spacing:.5px;font-weight:700}
+  .code-cell{display:flex;align-items:center;gap:8px;white-space:nowrap}
+  .copy-btn{flex:none;width:32px;height:32px;padding:0;display:grid;place-items:center;
+    border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);cursor:pointer}
+  .copy-btn:hover,.copy-btn:focus-visible{color:var(--blue);border-color:var(--blue);outline:none}
+  .copy-btn.done{color:var(--green);border-color:var(--green)}
+  .copy-btn svg{width:16px;height:16px}
   .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
   .badge.free{background:rgba(34,197,94,.14);color:var(--green)}
   .badge.used{background:rgba(245,158,11,.14);color:var(--amber)}
@@ -285,7 +291,7 @@ function render(){
   rows.innerHTML = list.map(c => {
     const used = isUsed(c);
     return `<tr>
-      <td class="code">${fmt(c.id)}</td>
+      <td class="code"><div class="code-cell"><span>${fmt(c.id)}</span><button class="copy-btn" title="نسخ الكود" aria-label="نسخ الكود" onclick="copyCode('${c.id}', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div></td>
       <td><span class="badge ${used?'used':'free'}">${used?'مُفعّل':'متاح'}</span></td>
       <td><div class="dev" title="${esc(c.deviceId||'')}">${esc(c.deviceId||'—')}</div></td>
       <td><input class="buyer-in" value="${esc(c.buyer||'')}" placeholder="اسم المشتري"
@@ -299,6 +305,26 @@ function render(){
 }
 
 /* ---------------- Actions ---------------- */
+function copyCode(id, btn){
+  const text = fmt(id);
+  const ok = () => {
+    toast('تم نسخ الكود: ' + text);
+    if(btn){ btn.classList.add('done'); setTimeout(()=>btn.classList.remove('done'), 1200); }
+  };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly','');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+    let done = false; try{ done = document.execCommand('copy'); }catch(e){}
+    ta.remove();
+    done ? ok() : toast('تعذّر النسخ، انسخ الكود يدوياً: ' + text);
+  };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(ok).catch(fallback);
+  } else fallback();
+}
+
 function resetCode(id){
   confirmBox('تحرير الكود؟', `سيعود الكود ${fmt(id)} إلى «متاح» ويُفصَل عن الجهاز الحالي.`, () => {
     db.collection(CODES_COLLECTION).doc(id).update({ used:false, deviceId:"" })
